@@ -11,24 +11,20 @@
 
 #include "platform_config.h"
 #include "squeezelite.h"
-#include "bt_app_sink.h"
-#include "raop_sink.h"
 #include <math.h>
 
-#define LOCK_O   mutex_lock(outputbuf->mutex)
-#define UNLOCK_O mutex_unlock(outputbuf->mutex)
-#define LOCK_D   mutex_lock(decode.mutex);
-#define UNLOCK_D mutex_unlock(decode.mutex);
-
-enum { DECODE_BT = 1, DECODE_RAOP };
-
-extern struct outputstate output;
-extern struct decodestate decode;
-extern struct buffer *outputbuf;
-// this is the only system-wide loglevel variable
-extern log_level loglevel;
-
+#if CONFIG_BT_SINK
+#include "bt_app_sink.h"
 static bool enable_bt_sink;
+#endif
+
+#if CONFIG_CSPOT_SINK
+#include "cspot_sink.h"
+static bool enable_cspot;
+#endif
+
+#if CONFIG_AIRPLAY_SINK
+#include "raop_sink.h"
 static bool enable_airplay;
 
 #define RAOP_OUTPUT_SIZE (((RAOP_SAMPLE_RATE * BYTES_PER_FRAME * 2 * 120) / 100) & ~BYTES_PER_FRAME)
@@ -44,6 +40,20 @@ static EXT_RAM_ATTR struct {
 	s32_t len;
 	u32_t start_time, playtime;
 } raop_sync;
+#endif
+
+#define LOCK_O   mutex_lock(outputbuf->mutex)
+#define UNLOCK_O mutex_unlock(outputbuf->mutex)
+#define LOCK_D   mutex_lock(decode.mutex);
+#define UNLOCK_D mutex_unlock(decode.mutex);
+
+enum { DECODE_BT = 1, DECODE_RAOP, DECODE_CSPOT };
+
+extern struct outputstate output;
+extern struct decodestate decode;
+extern struct buffer *outputbuf;
+// this is the only system-wide loglevel variable
+extern log_level loglevel;
 
 /****************************************************************************************
  * Common sink data handler
@@ -95,7 +105,7 @@ static void sink_data_handler(const uint8_t *data, uint32_t len)
 /****************************************************************************************
  * BT sink command handler
  */
-
+ #if CONFIG_BT_SINK
 static bool bt_sink_cmd_handler(bt_sink_cmd_t cmd, va_list args) 
 {
 	// don't LOCK_O as there is always a chance that LMS takes control later anyway
@@ -158,10 +168,12 @@ static bool bt_sink_cmd_handler(bt_sink_cmd_t cmd, va_list args)
 
 	return true;
 }
+#endif
 
 /****************************************************************************************
  * raop sink data handler
  */
+#if CONFIG_AIRPLAY_SINK
 static void raop_sink_data_handler(const uint8_t *data, uint32_t len, u32_t playtime) {
 	
 	raop_sync.playtime = playtime;
@@ -292,6 +304,57 @@ static bool raop_sink_cmd_handler(raop_event_t event, va_list args)
 	UNLOCK_D;
 	return true;
 }
+#endif
+
+/****************************************************************************************
+ * cspot sink command handler
+ */
+#if CONFIG_CSPOT_SINK
+static bool cspot_cmd_handler(cspot_event_t cmd, va_list args) 
+{
+	LOCK_D;
+	
+	if (cmd != CSPOT_SINK_VOLUME) LOCK_O;
+
+	switch(cmd) {
+	case CSPOT_SINK_PLAY:
+		output.next_sample_rate = output.current_sample_rate = va_arg(args, u32_t);
+		output.external = DECODE_CSPOT;
+		output.state = OUTPUT_RUNNING;
+		output.frames_played = 0;
+		_buf_flush(outputbuf);
+		if (decode.state != DECODE_STOPPED) decode.state = DECODE_ERROR;
+		LOG_INFO("CSpot sink started");
+		break;
+	case CSPOT_SINK_STOP:		
+		_buf_flush(outputbuf);
+		output.state = OUTPUT_STOPPED;
+		output.stop_time = gettime_ms();
+		LOG_INFO("CSpot stopped");
+		break;
+	case CSPOT_SINK_PAUSE:		
+		output.stop_time = gettime_ms();
+		LOG_INFO("CSpot paused, just silence");
+		break;
+	case CSPOT_SINK_VOLUME: {
+		u32_t volume = va_arg(args, u32_t);
+		//volume = 65536 * powf(volume / 32768.0f, 3);
+		// TODO spotify seems to volume normalize crazy high
+		volume = 4096 * powf(volume / 32768.0f, 3);
+		LOG_INFO("CSpot volume %u", volume);
+		set_volume(volume, volume);
+		break;
+	default:
+		break;
+	}
+	}
+	
+	if (cmd != CSPOT_SINK_VOLUME) UNLOCK_O;
+	UNLOCK_D;
+	
+	return true;
+}
+#endif
 
 /****************************************************************************************
  * We provide the generic codec register option
@@ -299,16 +362,28 @@ static bool raop_sink_cmd_handler(raop_event_t event, va_list args)
 void register_external(void) {
 	char *p;
 
+#if CONFIG_BT_SINK
 	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_bt_sink")) != NULL) {
 		enable_bt_sink = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
 		free(p);
 	}
+#endif	
 
+#if CONFIG_AIRPLAY_SINK
 	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_airplay")) != NULL) {
 		enable_airplay = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
 		free(p);
 	}
-
+#endif	
+	
+#if CONFIG_CSPOT_SINK	
+	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_cspot")) != NULL) {
+		enable_cspot = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
+		free(p);
+	}
+#endif
+	
+#if CONFIG_BT_SINK	
 	if (!strcasestr(output.device, "BT ") ) {
 		if(enable_bt_sink){
 			bt_sink_init(bt_sink_cmd_handler, sink_data_handler);
@@ -317,32 +392,61 @@ void register_external(void) {
 	} else {
 		LOG_WARN("Cannot be a BT sink and source");
 	}	
+#endif
 
+#if CONFIG_AIRPLAY_SINK
 	if (enable_airplay){
 		raop_sink_init(raop_sink_cmd_handler, raop_sink_data_handler);
 		LOG_INFO("Initializing AirPlay sink");
 	}
+#endif	
+	
+#if CONFIG_CSPOT_SINK
+	if (enable_cspot){
+		cspot_sink_init(cspot_cmd_handler, sink_data_handler);
+		LOG_INFO("Initializing CSpot sink");
+	}	
+#endif	
 }
 
 void deregister_external(void) {
+#if CONFIG_BT_SINK
 	if (!strcasestr(output.device, "BT ") && enable_bt_sink) {
 		LOG_INFO("Stopping BT sink");
 		bt_sink_deinit();
 	}
+#endif
+#if CONFIG_AIRPLAY_SINK
 	if (enable_airplay){
 		LOG_INFO("Stopping AirPlay sink");		
 		raop_sink_deinit();
 	}
+#endif
+#if CONFIG_CSPOT_SINK
+	if (enable_cspot){
+		LOG_INFO("Stopping CSpot sink");		
+		cspot_sink_deinit();
+	}
+#endif	
 }
 
 void decode_restore(int external) {
 	switch (external) {
+#if CONFIG_BT_SINK		
 	case DECODE_BT:
 		bt_disconnect();
 		break;
+#endif
+#if CONFIG_AIRPLAY_SINK
 	case DECODE_RAOP:
 		raop_disconnect();
 		raop_state = RAOP_STOP;
 		break;
+#endif
+#if CONFIG_CSPOT_SINK
+	case DECODE_CSPOT:
+		cspot_disconnect();
+		break;
+#endif			
 	}
 }

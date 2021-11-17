@@ -8,11 +8,12 @@ idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978
 						  			platform_config 
 						 			driver_bt 
 						 			services 
+									cspot									
 						 			raop   
 						 			display
 						 			tools
 						 			audio
-						 EMBED_FILES vu.data
+						EMBED_FILES vu_s.data arrow.data
 )
 
 set_source_files_properties(mad.c
@@ -23,7 +24,6 @@ set_source_files_properties(pcm.c
     PROPERTIES COMPILE_FLAGS
     -Wno-maybe-uninitialized
 )
-
 set_source_files_properties(flac.c
     PROPERTIES COMPILE_FLAGS
     -Wno-maybe-uninitialized
