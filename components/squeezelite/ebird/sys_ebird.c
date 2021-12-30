@@ -134,7 +134,7 @@ void initSoundSwitch() {
     writeByte1(chipaddr, 0x3F);    //
     writeByte1(chipaddr, 0x80);    //
     writeByte1(chipaddr, 0xA0);    //
-    writeByte1(chipaddr, 0x20);    //
+    writeByte1(chipaddr, 0x00);    //
 //    writeByte1(chipaddr, 0x16);    //
 }
 
@@ -188,6 +188,7 @@ float mapToDecibel(unsigned value) {
 
     
 static bool volume(unsigned left, unsigned right) { 
+    return false;
     uint32_t mean32 = (left + right) / 2;
     float dbValue = mapToDecibel(mean32);
     uint8_t vol8 =  (-dbValue/1.25);
