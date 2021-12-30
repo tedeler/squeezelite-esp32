@@ -186,9 +186,10 @@ float mapToDecibel(unsigned value) {
     return v;
 }
 
+#include "squeezelite.h"
+extern struct outputstate output;
     
 static bool volume(unsigned left, unsigned right) { 
-    return false;
     uint32_t mean32 = (left + right) / 2;
     float dbValue = mapToDecibel(mean32);
     uint8_t vol8 =  (-dbValue/1.25);
@@ -196,5 +197,9 @@ static bool volume(unsigned left, unsigned right) {
     ESP_LOGI(TAG, "Volume request: %d, %d => %.3fdB -> 0x%02X = %d", left, right, dbValue, vol8, vol8);
 
     writeByte1(0x44, vol8);
+
+    output.gainL = 65536;
+    output.gainR = 65536;
+   
 	return true; 
 }
