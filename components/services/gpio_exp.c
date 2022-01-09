@@ -38,7 +38,8 @@ typedef struct gpio_exp_s {
 	uint32_t shadow, pending;
 	TickType_t age;
 	SemaphoreHandle_t mutex;
-	uint32_t r_mask, w_mask;
+	uint32_t r_mask, w_mask, analog_mask;
+	uint8_t analog_value[32];
 	uint32_t pullup, pulldown;
 	struct gpio_exp_isr_s {
 		gpio_isr_t handler;
@@ -78,6 +79,13 @@ static void      mcp23s17_set_pull_mode(gpio_exp_t* self);
 static void      mcp23s17_set_direction(gpio_exp_t* self);
 static uint32_t  mcp23s17_read(gpio_exp_t* self);
 static void      mcp23s17_write(gpio_exp_t* self);
+
+static esp_err_t aw9523_init(gpio_exp_t* self);
+static void aw9523_set_direction(gpio_exp_t* self);
+static void aw9523_set_pull_mode(gpio_exp_t* self);
+static uint32_t aw9523_read(gpio_exp_t* self);
+static void aw9523_write(gpio_exp_t* self);
+
 
 static void   service_handler(void *arg);
 static void   debounce_handler( TimerHandle_t xTimer );
@@ -120,8 +128,15 @@ static const struct gpio_exp_model_s {
 	  .set_direction = mcp23s17_set_direction,
 	  .set_pull_mode = mcp23s17_set_pull_mode,
 	  .read = mcp23s17_read,
-	  .write = mcp23s17_write, },
-};
+	  .write = mcp23s17_write, },	
+	  { .model = "AW9523",
+	  .trigger = GPIO_INTR_NEGEDGE, 
+	  .init = aw9523_init,
+	  .set_direction = aw9523_set_direction,
+	  .set_pull_mode = aw9523_set_pull_mode,
+	  .read = aw9523_read,
+	  .write = aw9523_write, },
+	  };
 
 static EXT_RAM_ATTR uint8_t n_expanders;
 static EXT_RAM_ATTR QueueHandle_t message_queue;
@@ -412,7 +427,7 @@ static void IRAM_ATTR intr_isr_handler(void* arg) {
 	xTaskNotifyFromISR(service_task, GPIO_EXP_INTR, eSetValueWithOverwrite, &woken);
 	if (woken) portYIELD_FROM_ISR();
 
-	ESP_EARLY_LOGD(TAG, "INTR for expander base %d", gpio_exp_get_base(self));
+	ESP_EARLY_LOGI(TAG, "INTR for expander base %d", gpio_exp_get_base(self));
 }
 
 /****************************************************************************************
@@ -461,7 +476,7 @@ void service_handler(void *arg) {
 				expander->age = xTaskGetTickCount();
 
 				xSemaphoreGive(expander->mutex);
-				ESP_LOGD(TAG, "Handling GPIO %d reads 0x%04x and has 0x%04x pending", expander->first, expander->shadow, pending);
+				ESP_LOGI(TAG, "Handling GPIO %d reads 0x%04x and has 0x%04x pending", expander->first, expander->shadow, pending);
 				
 				for (int gpio = 31, clz = 0; pending && clz < 31; pending <<= (clz + 1)) {
 					clz = __builtin_clz(pending);
@@ -613,6 +628,57 @@ static void mcp23s17_write(gpio_exp_t* self) {
 	spi_write(self->spi_handle, self->phy.addr, 0x12, self->shadow, 2);
 }
 
+/****************************************************************************************
+ * AW9523: init, direction, read and write
+ */
+/*Welche Zugriffe noch fehlen:
+
+	0x12, 0x13 //LED Mode Switch (P0, P1)
+	0x20 + x   // Dim Regisdter x=0..15
+
+*/
+
+static esp_err_t aw9523_init(gpio_exp_t* self) {
+	uint8_t globalConfig = 0x00;
+	globalConfig |= 0x10; //P0 Port is in PushPull Mode
+	globalConfig |= 0x03; //256 Dimming Steps from 0-Imax/4
+
+	esp_err_t err = i2c_write(self->phy.port, self->phy.addr, 0x11, globalConfig, 1);
+	self->w_mask = 0x00000000;
+	self->r_mask = 0x00000000;
+	self->analog_mask = 0x00000000;
+	aw9523_set_direction(self);
+
+	return err;
+}
+
+static void aw9523_set_direction(gpio_exp_t* self) {
+	ESP_LOGI(TAG, "aw9523_set_direction(Port=%d, addr=0x%02X, r_mask=0x%04X, w_mask=0x%04X)", self->phy.port, self->phy.addr, self->r_mask, self->w_mask);
+	// default to input and set real input to generate interrupt
+	i2c_write(self->phy.port, self->phy.addr, 0x04, ~self->w_mask, 2);
+	i2c_write(self->phy.port, self->phy.addr, 0x06, ~self->r_mask, 2);
+	i2c_write(self->phy.port, self->phy.addr, 0x12, ~self->analog_mask, 2);
+}
+
+static void aw9523_set_pull_mode(gpio_exp_t* self) {
+}
+
+static uint32_t aw9523_read(gpio_exp_t* self) {
+	// read the pins value, not the stored one @interrupt
+	ESP_LOGI(TAG, "aw9523_read(Port=%d, addr=0x%02X)", self->phy.port, self->phy.addr);
+	return i2c_read(self->phy.port, self->phy.addr, 0x00, 2);
+}
+
+static void aw9523_write(gpio_exp_t* self) {
+	i2c_write(self->phy.port, self->phy.addr, 0x02, self->shadow, 2);
+	for(int b=0; b<16; b++) {
+		bool isAnalog = (self->analog_mask >> b) & 0x01;
+		if(!isAnalog)
+			continue;
+		i2c_write(self->phy.port, self->phy.addr, 0x20+b, self->analog_value[b], 1);
+	}
+}
+
 /***************************************************************************************
                                      I2C low level                                   
 ***************************************************************************************/
@@ -624,6 +690,8 @@ static esp_err_t i2c_write(uint8_t port, uint8_t addr, uint8_t reg, uint32_t dat
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
 	
+	ESP_LOGW(TAG, "I2C write to 0x%02X, 0x%02X data: 0x%08X len:%d", addr, reg, data, len);
+
 	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 	if (reg != 0xff) i2c_master_write_byte(cmd, reg, I2C_MASTER_NACK);
 

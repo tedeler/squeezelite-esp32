@@ -167,12 +167,12 @@ static bool init(char *config, int i2c_port, i2s_config_t *i2s_config) {
 
     ESP_LOGI(TAG, "eBird found");
 
-
+/*
     initLEDDriver();
     initButtonDriver();
     initSoundSwitch();
     setLEDValue(255, 128, 0);
-
+*/
 	return true;
 }
 

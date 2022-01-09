@@ -422,6 +422,9 @@ void app_main()
 		if (RecoveryRebootCounter >5){
 			messaging_post_message(MESSAGING_ERROR,MESSAGING_CLASS_SYSTEM,"System was forced into recovery mode after crash likely caused by some bad configuration. Configuration was reset to factory.\n");
 		}	
+
+		ESP_LOGI(TAG, "We are in Recovery. Reboot to application.");
+		guided_restart_ota();
 	}
 
 	char * fwurl = NULL;
