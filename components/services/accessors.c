@@ -530,6 +530,7 @@ const gpio_exp_config_t* config_gpio_exp_get(int index) {
 
 	// re-initialize config every time
 	memset(&config, 0, sizeof(config));
+	config.analogmask = 0;
 	config.intr = -1; config.count = 16; config.base = GPIO_NUM_MAX; config.phy.port = i2c_system_port; config.phy.host = spi_system_host;
 
 	nvs_item = config_alloc_get(NVS_TYPE_STR, "gpio_exp_config");
@@ -551,6 +552,23 @@ const gpio_exp_config_t* config_gpio_exp_get(int index) {
 	PARSE_PARAM(item, "count", '=', config.count);
 	PARSE_PARAM_STR(item, "model", '=', config.model, 31);
 
+	if ((p = strcasestr(item, "analogports")) != NULL) {
+		char port[8] = "";
+		char analogports[20] = "";
+		sscanf(p, "%*[^=]=%7[^,]", analogports);
+
+        char *str = analogports;
+        char *end = str;
+        while(*end) {
+            int n = strtol(str, &end, 10);
+            printf("%d\n", n);
+            config.analogmask |= (1<<n);
+            while (*end == '+') {
+                end++;
+            }
+            str = end;
+        }
+	}	
 	if ((p = strcasestr(item, "port")) != NULL) {
 		char port[8] = "";
 		sscanf(p, "%*[^=]=%7[^,]", port);

@@ -19,6 +19,7 @@ typedef struct {
 	int intr;
 	uint8_t count;
 	uint32_t base;
+	uint32_t analogmask;
 	struct gpio_exp_phy_s {
 		uint8_t addr;
 		struct {				// for I2C

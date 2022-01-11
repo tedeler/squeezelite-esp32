@@ -173,6 +173,7 @@ static bool init(char *config, int i2c_port, i2s_config_t *i2s_config) {
     initSoundSwitch();
     setLEDValue(255, 128, 0);
 */
+    initSoundSwitch();
 	return true;
 }
 

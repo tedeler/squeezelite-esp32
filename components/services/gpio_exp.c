@@ -183,6 +183,7 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 	}
 		
 	memcpy(&expander->phy, &config->phy, sizeof(struct gpio_exp_phy_s));
+	expander->analog_mask = config->analogmask;
 
 	// try to initialize the expander if required
 	if (expander->model->init && expander->model->init(expander) != ESP_OK) {
@@ -648,14 +649,13 @@ static esp_err_t aw9523_init(gpio_exp_t* self) {
 	esp_err_t err = i2c_write(self->phy.port, self->phy.addr, 0x11, globalConfig, 1);
 	self->w_mask = 0x00000000;
 	self->r_mask = 0x00000000;
-	self->analog_mask = 0x00000000;
 	aw9523_set_direction(self);
 
 	return err;
 }
 
 static void aw9523_set_direction(gpio_exp_t* self) {
-	ESP_LOGD(TAG, "aw9523_set_direction(Port=%d, addr=0x%02X, r_mask=0x%04X, w_mask=0x%04X)", self->phy.port, self->phy.addr, self->r_mask, self->w_mask);
+	ESP_LOGD(TAG, "aw9523_set_direction(Port=%d, addr=0x%02X, r_mask=0x%04X, w_mask=0x%04X, analog_mask=0x%04X)", self->phy.port, self->phy.addr, self->r_mask, self->w_mask, self->analog_mask);
 	// default to input and set real input to generate interrupt
 	i2c_write(self->phy.port, self->phy.addr, 0x04, ~self->w_mask, 2);
 	i2c_write(self->phy.port, self->phy.addr, 0x06, ~self->r_mask, 2);
