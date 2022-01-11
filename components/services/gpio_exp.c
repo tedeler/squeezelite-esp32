@@ -6,6 +6,8 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+
 #include <string.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
@@ -653,11 +655,10 @@ static esp_err_t aw9523_init(gpio_exp_t* self) {
 }
 
 static void aw9523_set_direction(gpio_exp_t* self) {
-	ESP_LOGI(TAG, "aw9523_set_direction(Port=%d, addr=0x%02X, r_mask=0x%04X, w_mask=0x%04X)", self->phy.port, self->phy.addr, self->r_mask, self->w_mask);
+	ESP_LOGD(TAG, "aw9523_set_direction(Port=%d, addr=0x%02X, r_mask=0x%04X, w_mask=0x%04X)", self->phy.port, self->phy.addr, self->r_mask, self->w_mask);
 	// default to input and set real input to generate interrupt
 	i2c_write(self->phy.port, self->phy.addr, 0x04, ~self->w_mask, 2);
 	i2c_write(self->phy.port, self->phy.addr, 0x06, ~self->r_mask, 2);
-	i2c_write(self->phy.port, self->phy.addr, 0x12, ~self->analog_mask, 2);
 }
 
 static void aw9523_set_pull_mode(gpio_exp_t* self) {
@@ -665,8 +666,10 @@ static void aw9523_set_pull_mode(gpio_exp_t* self) {
 
 static uint32_t aw9523_read(gpio_exp_t* self) {
 	// read the pins value, not the stored one @interrupt
-	ESP_LOGI(TAG, "aw9523_read(Port=%d, addr=0x%02X)", self->phy.port, self->phy.addr);
-	return i2c_read(self->phy.port, self->phy.addr, 0x00, 2);
+	ESP_LOGD(TAG, "aw9523_read(Port=%d, addr=0x%02X)", self->phy.port, self->phy.addr);
+	uint8_t lowbyte = i2c_read(self->phy.port, self->phy.addr, 0x00, 1);
+	uint8_t highbyte = i2c_read(self->phy.port, self->phy.addr, 0x01, 1);
+	return (highbyte << 8) | lowbyte;
 }
 
 static void aw9523_write(gpio_exp_t* self) {
@@ -690,7 +693,7 @@ static esp_err_t i2c_write(uint8_t port, uint8_t addr, uint8_t reg, uint32_t dat
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
 	
-	ESP_LOGW(TAG, "I2C write to 0x%02X, 0x%02X data: 0x%08X len:%d", addr, reg, data, len);
+	ESP_LOGD(TAG, "I2C write to 0x%02X, 0x%02X data: 0x%08X len:%d", addr, reg, data, len);
 
 	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 	if (reg != 0xff) i2c_master_write_byte(cmd, reg, I2C_MASTER_NACK);

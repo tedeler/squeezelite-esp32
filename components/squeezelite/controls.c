@@ -126,11 +126,22 @@ static void lms_##N (bool pressed) {    	\
 	}                                       \
 }
 
+#define LMS_CALLBACKX(N,B,E)					\
+static void lms_##N (bool pressed) {    	\
+	if (raw_mode) {							\
+		sendBUTN( BUTN_##B , pressed );		\
+	} else {								\
+		cli_send_cmd(#E); 		\
+	}                                       \
+}
+
 LMS_CALLBACK(power, POWER_FRONT, power)
 LMS_CALLBACK(play, PLAY, play.single)
 
-LMS_CALLBACK(volup, VOLUP_FRONT, volup)
-LMS_CALLBACK(voldown, VOLDOWN_FRONT, voldown)
+//LMS_CALLBACK(volup, VOLUP_FRONT, volup)
+LMS_CALLBACKX(volup, VOLUP_FRONT, mixer volume +10)
+LMS_CALLBACKX(voldown, VOLUP_FRONT, mixer volume -10)
+//LMS_CALLBACK(voldown, VOLDOWN_FRONT, voldown)
 
 LMS_CALLBACK(rew, REW, rew.repeat)
 LMS_CALLBACK(fwd, FWD, fwd.repeat)
@@ -194,7 +205,7 @@ static void cli_send_cmd(char *cmd) {
 	int len;
 	
 	len = sprintf(packet, "%02x:%02x:%02x:%02x:%02x:%02x %s\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], cmd);
-	LOG_DEBUG("sending command %s at %s:%hu", packet, inet_ntoa(server_ip), server_cport);
+	LOG_WARN("sending command %s at %s:%hu", packet, inet_ntoa(server_ip), server_cport);
 	
 	if (cli_sock < 0) connect_cli_socket();
 
