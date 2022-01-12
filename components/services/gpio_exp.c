@@ -41,7 +41,8 @@ typedef struct gpio_exp_s {
 	TickType_t age;
 	SemaphoreHandle_t mutex;
 	uint32_t r_mask, w_mask, analog_mask;
-	uint8_t analog_value[32];
+	uint8_t analog_max_values[32];
+	uint8_t analog_max_current;
 	uint32_t pullup, pulldown;
 	struct gpio_exp_isr_s {
 		gpio_isr_t handler;
@@ -184,6 +185,8 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 		
 	memcpy(&expander->phy, &config->phy, sizeof(struct gpio_exp_phy_s));
 	expander->analog_mask = config->analogmask;
+	expander->analog_max_current = config->analogmaxcurrent;
+	memcpy(&expander->analog_max_values, &config->analogmaxvalues, 32);
 
 	// try to initialize the expander if required
 	if (expander->model->init && expander->model->init(expander) != ESP_OK) {
@@ -644,7 +647,16 @@ static void mcp23s17_write(gpio_exp_t* self) {
 static esp_err_t aw9523_init(gpio_exp_t* self) {
 	uint8_t globalConfig = 0x00;
 	globalConfig |= 0x10; //P0 Port is in PushPull Mode
-	globalConfig |= 0x03; //256 Dimming Steps from 0-Imax/4
+
+	switch(self->analog_max_current) {
+		case 4: globalConfig |= 0x00; break;//from 0-Imax
+		case 3: globalConfig |= 0x01; break;//from 0-Imax * 3/4
+		case 2: globalConfig |= 0x02; break;//from 0-Imax/2
+		case 1: 
+		default:
+		globalConfig |= 0x03; break;//from 0-Imax/4
+	}
+	ESP_LOGD(TAG, "Setting max Current to Imax * %d/4", 4-(globalConfig&0x03));
 
 	esp_err_t err = i2c_write(self->phy.port, self->phy.addr, 0x11, globalConfig, 1);
 	self->w_mask = 0x00000000;
@@ -666,28 +678,29 @@ static void aw9523_set_pull_mode(gpio_exp_t* self) {
 }
 
 static uint32_t aw9523_read(gpio_exp_t* self) {
-	// read the pins value, not the stored one @interrupt
 	ESP_LOGD(TAG, "aw9523_read(Port=%d, addr=0x%02X)", self->phy.port, self->phy.addr);
+
+	//if reading two bytes at once, the interrupt is not cleared
 	uint8_t lowbyte = i2c_read(self->phy.port, self->phy.addr, 0x00, 1);
 	uint8_t highbyte = i2c_read(self->phy.port, self->phy.addr, 0x01, 1);
 	return (highbyte << 8) | lowbyte;
 }
 
 static void aw9523_write(gpio_exp_t* self) {
-	self->analog_value[10] = 0x37; //green
-	self->analog_value[11] = 0x32; //blue
-	self->analog_value[0] = 0x80; //red
 	uint8_t DimPortMapping[16] = {0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B,
 	                              0x20, 0x21, 0x22, 0x23, 0x2C, 0x2D, 0x2E, 0x2F};
+
+	//Writing digital values
 	i2c_write(self->phy.port, self->phy.addr, 0x02, self->shadow & ~self->analog_mask, 2);
-	ESP_LOGD(TAG, "Shadow: 0x%04X, AnalogMask: 0x%04X", self->shadow, self->analog_mask);
+
+	//Writing analog (dimming) values
 	for(int b=0; b<16; b++) {
 		bool isAnalog = (self->analog_mask & (1<<b));
 		if(!isAnalog)
 			continue;
 		bool on = (self->shadow & (1<<b));
-		uint8_t value = on ? self->analog_value[b]:0x00;
-		ESP_LOGD(TAG, "Writing analog Value 0x%02X to 0x%02X pin %d", value, self->phy.addr, b);
+		uint8_t value = on ? self->analog_max_values[b]:0x00;
+		ESP_LOGV(TAG, "Writing analog Value 0x%02X to 0x%02X pin %d", value, self->phy.addr, b);
 		i2c_write(self->phy.port, self->phy.addr, DimPortMapping[b], value, 1);
 	}
 }

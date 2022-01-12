@@ -134,7 +134,7 @@ void initSoundSwitch() {
     writeByte1(chipaddr, 0x3F);    //
     writeByte1(chipaddr, 0x80);    //
     writeByte1(chipaddr, 0xA0);    //
-    writeByte1(chipaddr, 0x00);    //
+    writeByte1(chipaddr, 0x3F);    //
 //    writeByte1(chipaddr, 0x16);    //
 }
 

@@ -20,6 +20,8 @@ typedef struct {
 	uint8_t count;
 	uint32_t base;
 	uint32_t analogmask;
+	uint8_t analogmaxvalues[32];
+	uint8_t analogmaxcurrent;
 	struct gpio_exp_phy_s {
 		uint8_t addr;
 		struct {				// for I2C

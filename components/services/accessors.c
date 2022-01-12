@@ -550,25 +550,29 @@ const gpio_exp_config_t* config_gpio_exp_get(int index) {
 	PARSE_PARAM(item, "intr", '=', config.intr);
 	PARSE_PARAM(item, "base", '=', config.base);
 	PARSE_PARAM(item, "count", '=', config.count);
+	PARSE_PARAM(item, "analogmaxcurrent", '=', config.analogmaxcurrent);
 	PARSE_PARAM_STR(item, "model", '=', config.model, 31);
 
 	if ((p = strcasestr(item, "analogports")) != NULL) {
-		char port[8] = "";
-		char analogports[20] = "";
-		sscanf(p, "%*[^=]=%7[^,]", analogports);
+		int port, maxvalue;
+		while(*p) {
+			while(*p && !isdigit(*p))
+				p++;
+			if (*p == 0)
+				break;
+			port = strtol(p, &p, 10);
+			if(*p != ':') {
+				continue;
+			} else {
+				while(*p && !isdigit(*p))
+					p++;
+				maxvalue = strtol(p, &p, 10);
+			}
+			config.analogmask |= (1<<port);
+			config.analogmaxvalues[port] = maxvalue;
+		}
+	}
 
-        char *str = analogports;
-        char *end = str;
-        while(*end) {
-            int n = strtol(str, &end, 10);
-            printf("%d\n", n);
-            config.analogmask |= (1<<n);
-            while (*end == '+') {
-                end++;
-            }
-            str = end;
-        }
-	}	
 	if ((p = strcasestr(item, "port")) != NULL) {
 		char port[8] = "";
 		sscanf(p, "%*[^=]=%7[^,]", port);
