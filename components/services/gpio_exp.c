@@ -6,7 +6,7 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+//#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 
 #include <string.h>
 #include <stdlib.h>
@@ -659,6 +659,7 @@ static void aw9523_set_direction(gpio_exp_t* self) {
 	// default to input and set real input to generate interrupt
 	i2c_write(self->phy.port, self->phy.addr, 0x04, ~self->w_mask, 2);
 	i2c_write(self->phy.port, self->phy.addr, 0x06, ~self->r_mask, 2);
+	i2c_write(self->phy.port, self->phy.addr, 0x12, ~self->analog_mask, 2);
 }
 
 static void aw9523_set_pull_mode(gpio_exp_t* self) {
@@ -673,12 +674,21 @@ static uint32_t aw9523_read(gpio_exp_t* self) {
 }
 
 static void aw9523_write(gpio_exp_t* self) {
-	i2c_write(self->phy.port, self->phy.addr, 0x02, self->shadow, 2);
+	self->analog_value[10] = 0x37; //green
+	self->analog_value[11] = 0x32; //blue
+	self->analog_value[0] = 0x80; //red
+	uint8_t DimPortMapping[16] = {0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B,
+	                              0x20, 0x21, 0x22, 0x23, 0x2C, 0x2D, 0x2E, 0x2F};
+	i2c_write(self->phy.port, self->phy.addr, 0x02, self->shadow & ~self->analog_mask, 2);
+	ESP_LOGD(TAG, "Shadow: 0x%04X, AnalogMask: 0x%04X", self->shadow, self->analog_mask);
 	for(int b=0; b<16; b++) {
-		bool isAnalog = (self->analog_mask >> b) & 0x01;
+		bool isAnalog = (self->analog_mask & (1<<b));
 		if(!isAnalog)
 			continue;
-		i2c_write(self->phy.port, self->phy.addr, 0x20+b, self->analog_value[b], 1);
+		bool on = (self->shadow & (1<<b));
+		uint8_t value = on ? self->analog_value[b]:0x00;
+		ESP_LOGD(TAG, "Writing analog Value 0x%02X to 0x%02X pin %d", value, self->phy.addr, b);
+		i2c_write(self->phy.port, self->phy.addr, DimPortMapping[b], value, 1);
 	}
 }
 

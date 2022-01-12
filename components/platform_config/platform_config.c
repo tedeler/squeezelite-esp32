@@ -19,7 +19,7 @@
  *
  */
 
-#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 
 #include "platform_config.h"
 #include "nvs_utilities.h"
