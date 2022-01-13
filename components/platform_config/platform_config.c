@@ -18,9 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
-
 #include "platform_config.h"
 #include "nvs_utilities.h"
 #include "platform_esp32.h"
@@ -649,7 +646,7 @@ void * config_alloc_get_default(nvs_type_t nvs_type, const char *key, void * def
 	ESP_LOGD(TAG,"Getting config entry for key %s",key);
 	cJSON * entry = cJSON_GetObjectItemCaseSensitive(nvs_json, key);
 	if(entry !=NULL){
-		ESP_LOGD(TAG, "Entry found, getting value.");
+		ESP_LOGV(TAG, "Entry found, getting value.");
 		value = config_safe_alloc_get_entry_value(nvs_type, entry);
 	}
 	else if(default_value!=NULL){

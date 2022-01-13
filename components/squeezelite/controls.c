@@ -205,7 +205,7 @@ static void cli_send_cmd(char *cmd) {
 	int len;
 	
 	len = sprintf(packet, "%02x:%02x:%02x:%02x:%02x:%02x %s\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], cmd);
-	LOG_WARN("sending command %s at %s:%hu", packet, inet_ntoa(server_ip), server_cport);
+	LOG_DEBUG("sending command %s at %s:%hu", packet, inet_ntoa(server_ip), server_cport);
 	
 	if (cli_sock < 0) connect_cli_socket();
 

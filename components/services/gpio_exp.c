@@ -6,8 +6,6 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-//#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
-
 #include <string.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
@@ -433,7 +431,7 @@ static void IRAM_ATTR intr_isr_handler(void* arg) {
 	xTaskNotifyFromISR(service_task, GPIO_EXP_INTR, eSetValueWithOverwrite, &woken);
 	if (woken) portYIELD_FROM_ISR();
 
-	ESP_EARLY_LOGI(TAG, "INTR for expander base %d", gpio_exp_get_base(self));
+	ESP_EARLY_LOGD(TAG, "INTR for expander base %d", gpio_exp_get_base(self));
 }
 
 /****************************************************************************************
@@ -482,7 +480,7 @@ void service_handler(void *arg) {
 				expander->age = xTaskGetTickCount();
 
 				xSemaphoreGive(expander->mutex);
-				ESP_LOGI(TAG, "Handling GPIO %d reads 0x%04x and has 0x%04x pending", expander->first, expander->shadow, pending);
+				ESP_LOGD(TAG, "Handling GPIO %d reads 0x%04x and has 0x%04x pending", expander->first, expander->shadow, pending);
 				
 				for (int gpio = 31, clz = 0; pending && clz < 31; pending <<= (clz + 1)) {
 					clz = __builtin_clz(pending);
@@ -716,8 +714,6 @@ static esp_err_t i2c_write(uint8_t port, uint8_t addr, uint8_t reg, uint32_t dat
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
 	
-	ESP_LOGD(TAG, "I2C write to 0x%02X, 0x%02X data: 0x%08X len:%d", addr, reg, data, len);
-
 	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 	if (reg != 0xff) i2c_master_write_byte(cmd, reg, I2C_MASTER_NACK);
 

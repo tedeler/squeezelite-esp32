@@ -7,8 +7,7 @@
  *  https://opensource.org/licenses/MIT
  *
  */
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

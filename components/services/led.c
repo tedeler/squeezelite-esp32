@@ -6,9 +6,6 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-//#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -90,7 +87,7 @@ static void vCallbackFunction( TimerHandle_t xTimer ) {
 bool led_blink_core(int idx, int ontime, int offtime, bool pushed) {
 	if (!leds[idx].gpio || leds[idx].gpio < 0 ) return false;
 	
-	ESP_LOGW(TAG,"led_blink_core %d on:%d off:%d, pushed:%u", idx, ontime, offtime, pushed);
+	ESP_LOGD(TAG,"led_blink_core %d on:%d off:%d, pushed:%u", idx, ontime, offtime, pushed);
 	if (leds[idx].timer) {
 		// normal requests waits if a pop is pending
 		if (!pushed && leds[idx].pushed) {

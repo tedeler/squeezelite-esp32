@@ -46,8 +46,6 @@
 #include "accessors.h"
 #include "cmd_system.h"
 #include "tools.h"
-#include "globdefs.h"
-
 
 static const char certs_namespace[] = "certificates";
 static const char certs_key[] = "blob";
@@ -422,9 +420,6 @@ void app_main()
 		if (RecoveryRebootCounter >5){
 			messaging_post_message(MESSAGING_ERROR,MESSAGING_CLASS_SYSTEM,"System was forced into recovery mode after crash likely caused by some bad configuration. Configuration was reset to factory.\n");
 		}	
-
-		ESP_LOGI(TAG, "We are in Recovery. Reboot to application.");
-		guided_restart_ota();
 	}
 
 	char * fwurl = NULL;
@@ -451,13 +446,6 @@ void app_main()
 	MEMTRACE_PRINT_DELTA();
 	ESP_LOGI(TAG,"Initializing display");
 	display_init("SqueezeESP32");
-
-/*	ESP_LOGI(TAG,"Initializing sound system (EBIRD)");
-    initLEDDriver();
-    initButtonDriver();
-    initSoundSwitch();
-	setLEDValue(0, 0, 255);
-*/
 	MEMTRACE_PRINT_DELTA();
 	if(is_recovery_running && display){
 		GDS_ClearExt(display, true);

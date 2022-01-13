@@ -530,7 +530,6 @@ const gpio_exp_config_t* config_gpio_exp_get(int index) {
 
 	// re-initialize config every time
 	memset(&config, 0, sizeof(config));
-	config.analogmask = 0;
 	config.intr = -1; config.count = 16; config.base = GPIO_NUM_MAX; config.phy.port = i2c_system_port; config.phy.host = spi_system_host;
 
 	nvs_item = config_alloc_get(NVS_TYPE_STR, "gpio_exp_config");

@@ -303,10 +303,7 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 			if ((p = strchr(mute, ':')) != NULL) mute_control.active = atoi(p + 1);
 		}	
 
-		for (int i = 0; adac == &dac_external && dac_set[i]; i++) 
-			if (strcasestr(dac_set[i]->model, model)) 
-				adac = dac_set[i];
-		LOG_INFO("Vor dem Initaufruf von modelfeld: %s", adac->model);
+		for (int i = 0; adac == &dac_external && dac_set[i]; i++) if (strcasestr(dac_set[i]->model, model)) adac = dac_set[i];
 		res = adac->init(dac_config, I2C_PORT, &i2s_config) ? ESP_OK : ESP_FAIL;
 
 		res |= i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
@@ -320,7 +317,6 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 				
 		LOG_INFO("%s DAC using I2S bck:%d, ws:%d, do:%d, mute:%d:%d (res:%d)", model, i2s_dac_pin.bck_io_num, i2s_dac_pin.ws_io_num, 
 																   i2s_dac_pin.data_out_num, mute_control.gpio, mute_control.active, res);
-
 	}	
 			
 	free(dac_config);

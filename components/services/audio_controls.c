@@ -8,9 +8,6 @@
  *  https://opensource.org/licenses/MIT
  *
  */
-
-#define LOG_LOCAL_LEVEL ESP_LOG_INFO
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -516,7 +513,7 @@ static esp_err_t actrls_init_json(const char *profile_name, bool create) {
 	config = config_alloc_get_default(NVS_TYPE_STR, profile_name, NULL, 0);
 	if(!config) return ESP_FAIL;
 
-	ESP_LOGW(TAG,"Parsing JSON structure %s", config);
+	ESP_LOGD(TAG,"Parsing JSON structure %s", config);
 	cJSON *buttons = cJSON_Parse(config);
 	if (buttons == NULL) {
 		ESP_LOGE(TAG,"JSON Parsing failed for %s", config);
