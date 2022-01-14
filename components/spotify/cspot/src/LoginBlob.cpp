@@ -35,7 +35,7 @@ std::vector<uint8_t> LoginBlob::decodeBlob(const std::vector<uint8_t> &blob, con
     }
 
     encryptionKey = std::vector<uint8_t>(encryptionKey.begin(), encryptionKey.begin() + 16);
-    crypto->aesCTRXcrypt(encryptionKey, iv, encrypted);
+    crypto->aesCTRXcrypt(encryptionKey, iv, encrypted.data(), encrypted.size());
 
     return encrypted;
 }
@@ -103,7 +103,7 @@ void LoginBlob::loadUserPass(const std::string &username, const std::string &pas
 {
     this->username = username;
     this->authData = std::vector<uint8_t>(password.begin(), password.end());
-    this->authType = static_cast<uint32_t>(AuthenticationType::AUTHENTICATION_USER_PASS);
+    this->authType = static_cast<uint32_t>(AuthenticationType_AUTHENTICATION_USER_PASS);
 }
 
 void LoginBlob::loadJson(const std::string &json)

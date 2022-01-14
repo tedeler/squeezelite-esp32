@@ -247,7 +247,7 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 	// common I2S initialization
 	i2s_config.mode = I2S_MODE_MASTER | I2S_MODE_TX;
 	i2s_config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-	i2s_config.communication_format = I2S_COMM_FORMAT_I2S| I2S_COMM_FORMAT_I2S_MSB;
+	i2s_config.communication_format = I2S_COMM_FORMAT_STAND_I2S;
 	// in case of overflow, do not replay old buffer
 	i2s_config.tx_desc_auto_clear = true;		
 	i2s_config.use_apll = true;
@@ -282,7 +282,7 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		
 		res = i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
 		res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_spdif_pin);
-		LOG_INFO("SPDIF using I2S bck:%u, ws:%u, do:%u", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
+		LOG_INFO("SPDIF using I2S bck:%d, ws:%d, do:%d", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
 	} else {
 		i2s_config.sample_rate = output.current_sample_rate;
 		i2s_config.bits_per_sample = BYTES_PER_FRAME * 8 / 2;
@@ -672,7 +672,7 @@ static const u16_t spdif_bmclookup[256] = { //biphase mark encoded values (least
  audio is transmitted first (not the MSB) and that ESP32 libray sends R then L, 
  contrary to what seems to be usually done, so (dst) order had to be changed
 */
-void spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *count) {
+static void IRAM_ATTR spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *count) {
 	register u16_t hi, lo, aux;
 	size_t cnt = *count;
 	

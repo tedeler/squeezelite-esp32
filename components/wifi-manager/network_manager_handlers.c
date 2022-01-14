@@ -237,13 +237,13 @@ static state_machine_result_t NETWORK_INSTANTIATED_STATE_handler(state_machine_t
         ESP_LOGD(TAG, "sta_polling_min_ms set to %d", nm->sta_polling_min_ms);
         FREE_AND_NULL(valuestr);
     }
-    valuestr=config_alloc_get_default(NVS_TYPE_STR,"ethtmout","8",0);
+    valuestr=config_alloc_get_default(NVS_TYPE_STR,"ethtmout","30",0);
     if (valuestr) {
         nm->eth_link_down_reboot_ms = atoi(valuestr)*1000;
         ESP_LOGD(TAG, "ethtmout set to %d", nm->eth_link_down_reboot_ms);
         FREE_AND_NULL(valuestr);
     }
-    valuestr=config_alloc_get_default(NVS_TYPE_STR,"dhcp_tmout","8",0);
+    valuestr=config_alloc_get_default(NVS_TYPE_STR,"dhcp_tmout","30",0);
     if(valuestr){
         nm->dhcp_timeout = atoi(valuestr)*1000;
         ESP_LOGD(TAG, "dhcp_timeout set to %d", nm->dhcp_timeout);
@@ -296,6 +296,10 @@ static state_machine_result_t NETWORK_INITIALIZING_STATE_handler(state_machine_t
         case EN_START:
         if (network_is_wifi_prioritized()) {
                 ESP_LOGI(TAG, "WiFi connection is prioritized. Starting WiFi");
+                result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE],__FUNCTION__);
+            }
+            else if(is_recovery_running){
+                ESP_LOGI(TAG, "Running recovery. Skipping ethernet, starting WiFi");
                 result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE],__FUNCTION__);
             }
             else {

@@ -6,7 +6,6 @@
 #include <functional>
 #include "Utils.h"
 #include "MercuryManager.h"
-#include "ProtoHelper.h"
 #include "Session.h"
 #include "PlayerState.h"
 #include "SpotifyTrack.h"
@@ -38,6 +37,7 @@ class SpircController {
 private:
     std::shared_ptr<MercuryManager> manager;
     std::string username;
+    bool firstFrame = true;
     std::unique_ptr<Player> player;
     std::unique_ptr<PlayerState> state;
     std::shared_ptr<AudioSink> audioSink;

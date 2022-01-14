@@ -9,8 +9,9 @@ std::map<MercuryType, std::string> MercuryTypeMap({
     {MercuryType::UNSUB, "UNSUB"},
     });
 
-MercuryManager::MercuryManager(std::unique_ptr<Session> session): bell::Task("mercuryManager", 6 * 1024, +1, 1)
+MercuryManager::MercuryManager(std::unique_ptr<Session> session): bell::Task("mercuryManager", 6 * 1024, 0, 1)
 {
+    tempMercuryHeader = {};
     this->timeProvider = std::make_shared<TimeProvider>();
     this->callbacks = std::map<uint64_t, mercuryCallback>();
     this->subscriptions = std::map<std::string, mercuryCallback>();
@@ -25,6 +26,11 @@ MercuryManager::MercuryManager(std::unique_ptr<Session> session): bell::Task("me
     this->session->shanConn->conn->timeoutHandler = [this]() {
         return this->timeoutHandler();
     };
+}
+
+MercuryManager::~MercuryManager()
+{
+    //pb_release(Header_fields, &tempMercuryHeader);
 }
 
 bool MercuryManager::timeoutHandler()
@@ -171,7 +177,6 @@ void MercuryManager::runTask()
         }
         if (static_cast<MercuryType>(packet->command) == MercuryType::PING) // @TODO: Handle time synchronization through ping
         {
-            CSPOT_LOG(debug, "Got ping, syncing timestamp");
             this->timeProvider->syncWithPingPacket(packet->data);
 
             this->lastPingTimestamp = this->timeProvider->getSyncedTimestamp();
@@ -257,9 +262,10 @@ void MercuryManager::updateQueue() {
             {
                 auto response = std::make_unique<MercuryResponse>(packet->data);
 
-                if (this->subscriptions.count(response->mercuryHeader.uri.value()) > 0)
+                auto uri = std::string(response->mercuryHeader.uri);
+                if (this->subscriptions.count(uri) > 0)
                 {
-                    this->subscriptions[response->mercuryHeader.uri.value()](std::move(response));
+                    this->subscriptions[uri](std::move(response));
                     //this->subscriptions.erase(std::string(response->mercuryHeader.uri));
                 }
                 break;
@@ -288,9 +294,11 @@ uint64_t MercuryManager::execute(MercuryType method, std::string uri, mercuryCal
     // Construct mercury header
 
     CSPOT_LOG(debug, "executing MercuryType %s", MercuryTypeMap[method].c_str());
-    Header mercuryHeader;
-    mercuryHeader.uri = uri;
-    mercuryHeader.method = MercuryTypeMap[method];
+    pbPutString(uri, tempMercuryHeader.uri);
+    pbPutString(MercuryTypeMap[method], tempMercuryHeader.method);
+
+    tempMercuryHeader.has_method = true;
+    tempMercuryHeader.has_uri = true;
 
     // GET and SEND are actually the same. Therefore the override
     // The difference between them is only in header's method
@@ -299,7 +307,7 @@ uint64_t MercuryManager::execute(MercuryType method, std::string uri, mercuryCal
         method = MercuryType::SEND;
     }
 
-    auto headerBytes = encodePb(mercuryHeader);
+    auto headerBytes = pbEncode(Header_fields, &tempMercuryHeader);
 
     // Register a subscription when given method is called
     if (method == MercuryType::SUB)

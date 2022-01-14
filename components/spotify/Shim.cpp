@@ -71,7 +71,7 @@ static void cspotTask(void *pvParameters) {
 		ESP_LOGW(TAG, "Cannot load config, using default");
 		
 		configMan->deviceName = cspot.name;
-		configMan->format = AudioFormat::OGG_VORBIS_160;
+		configMan->format = AudioFormat_OGG_VORBIS_160;
 		configMan->volume = 32767;
 
 		configMan->save();	
@@ -80,7 +80,7 @@ static void cspotTask(void *pvParameters) {
 	// safely load config now
 	configMan->load();
 	if (!configMan->deviceName.length()) configMan->deviceName = cspot.name;
-	ESP_LOGI(TAG, "Started CSpot with %s (bitrate %d)", configMan->deviceName.c_str(), configMan->format == AudioFormat::OGG_VORBIS_320 ? 320 : (configMan->format == AudioFormat::OGG_VORBIS_160 ? 160 : 96));
+	ESP_LOGI(TAG, "Started CSpot with %s (bitrate %d)", configMan->deviceName.c_str(), configMan->format == AudioFormat_OGG_VORBIS_320 ? 320 : (configMan->format == AudioFormat_OGG_VORBIS_160 ? 160 : 96));
 
 	// All we do here is notify the task to start the mercury loop
     auto createPlayerCallback = [](std::shared_ptr<LoginBlob> blob) {
@@ -119,8 +119,8 @@ static void cspotTask(void *pvParameters) {
             switch (event.eventType) {
             case CSpotEventType::TRACK_INFO: {
                 TrackInfo track = std::get<TrackInfo>(event.data);
-				// duration is in chunks of 0.5 ms
-				cspot.cHandler(CSPOT_TRACK, 44100, track.duration / 2, track.artist.c_str(), track.album.c_str(), track.name.c_str());
+				cspot.cHandler(CSPOT_TRACK, 44100, track.duration, track.artist.c_str(), 
+							   track.album.c_str(), track.name.c_str(), track.imageUrl.c_str());
                 break;
             }
             case CSpotEventType::PLAY_PAUSE: {
@@ -192,7 +192,7 @@ struct cspot_s* cspot_create(const char *name, cspot_cmd_cb_t cmd_cb, cspot_data
 	cspot.cHandler = cmd_cb;
 	cspot.dHandler = data_cb;
 	strncpy(cspot.name, name, sizeof(cspot.name) - 1);
-    cspot.TaskHandle = xTaskCreateStatic(&cspotTask, "cspot", CSPOT_STACK_SIZE, NULL, CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT, xStack, &xTaskBuffer);
+    cspot.TaskHandle = xTaskCreateStatic(&cspotTask, "cspot", CSPOT_STACK_SIZE, NULL, CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT - 2, xStack, &xTaskBuffer);
 	
 	return &cspot;
 }
@@ -246,8 +246,8 @@ void ShimAudioSink::volumeChanged(uint16_t volume) {
 	cspot.cHandler(CSPOT_VOLUME, volume);
 }
 
-void ShimAudioSink::feedPCMFrames(std::vector<uint8_t> &data) {	
-	cspot.dHandler(&data[0], data.size());
+void ShimAudioSink::feedPCMFrames(const uint8_t *data, size_t bytes) {	
+	cspot.dHandler(data, bytes);
 }
 
 /****************************************************************************************

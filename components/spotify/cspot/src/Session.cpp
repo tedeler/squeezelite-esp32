@@ -6,9 +6,21 @@ using random_bytes_engine = std::independent_bits_engine<std::default_random_eng
 
 Session::Session()
 {
+    this->clientHello = {};
+    this->apResponse = {};
+    this->authRequest = {};
+    this->clientResPlaintext = {};
+
     // Generates the public and priv key
     this->crypto = std::make_unique<Crypto>();
     this->shanConn = std::make_shared<ShannonConnection>();
+}
+
+Session::~Session()
+{
+    pb_release(ClientHello_fields, &clientHello);
+    pb_release(APResponseMessage_fields, &apResponse);
+    pb_release(ClientResponsePlaintext_fields, &clientResPlaintext);
 }
 
 void Session::connect(std::unique_ptr<PlainConnection> connection)
@@ -37,16 +49,26 @@ std::vector<uint8_t> Session::authenticate(std::shared_ptr<LoginBlob> blob)
     authBlob = blob;
 
     // prepare authentication request proto
-    authRequest.login_credentials.username = blob->username;
-    authRequest.login_credentials.auth_data = blob->authData;
-    authRequest.login_credentials.typ = static_cast<AuthenticationType>(blob->authType);
-    authRequest.system_info.cpu_family = CpuFamily::CPU_UNKNOWN;
-    authRequest.system_info.os = Os::OS_UNKNOWN;
-    authRequest.system_info.system_information_string = std::string(informationString);
-    authRequest.system_info.device_id = std::string(deviceId);
-    authRequest.version_string = std::string(versionString);
+    pbPutString(blob->username, authRequest.login_credentials.username);
 
-    auto data = encodePb(authRequest);
+    std::copy(blob->authData.begin(), blob->authData.end(), authRequest.login_credentials.auth_data.bytes);
+    authRequest.login_credentials.auth_data.size = blob->authData.size();
+
+    authRequest.login_credentials.typ = (AuthenticationType) blob->authType;
+    authRequest.system_info.cpu_family = CpuFamily_CPU_UNKNOWN;
+    authRequest.system_info.os = Os_OS_UNKNOWN;
+
+    auto infoStr = std::string(informationString);
+    pbPutString(infoStr, authRequest.system_info.system_information_string);
+
+    auto deviceIdStr = std::string(deviceId);
+    pbPutString(deviceId, authRequest.system_info.device_id);
+
+    auto versionStr = std::string(versionString);
+    pbPutString(versionStr, authRequest.version_string);
+    authRequest.has_version_string = true;
+
+    auto data = pbEncode(ClientResponseEncrypted_fields, &authRequest);
 
     // Send login request
     this->shanConn->sendPacket(LOGIN_REQUEST_COMMAND, data);
@@ -59,7 +81,7 @@ std::vector<uint8_t> Session::authenticate(std::shared_ptr<LoginBlob> blob)
         CSPOT_LOG(debug, "Authorization successful");
 
         // @TODO store the reusable credentials
-        // PBWrapper<APWelcome> welcomePacket(packet->data)
+        // PBWrapper<APWelcome>  welcomePacket(packet->data)
         return std::vector<uint8_t>({0x1}); // TODO: return actual reusable credentaials to be stored somewhere
         break;
     }
@@ -82,11 +104,13 @@ void Session::processAPHelloResponse(std::vector<uint8_t> &helloPacket)
     CSPOT_LOG(debug, "Received AP hello response");
     // Decode the response
     auto skipSize = std::vector<uint8_t>(data.begin() + 4, data.end());
-    apResponse = decodePb<APResponseMessage>(skipSize);
 
-    auto kkEy = apResponse.challenge->login_crypto_challenge.diffie_hellman->gs;
+    pb_release(APResponseMessage_fields, &apResponse);
+    pbDecode(apResponse, APResponseMessage_fields, skipSize);
+
+    auto diffieKey = std::vector<uint8_t>(apResponse.challenge.login_crypto_challenge.diffie_hellman.gs, apResponse.challenge.login_crypto_challenge.diffie_hellman.gs + 96);
     // Compute the diffie hellman shared key based on the response
-    auto sharedKey = this->crypto->dhCalculateShared(kkEy);
+    auto sharedKey = this->crypto->dhCalculateShared(diffieKey);
 
     // Init client packet + Init server packets are required for the hmac challenge
     data.insert(data.begin(), helloPacket.begin(), helloPacket.end());
@@ -106,11 +130,14 @@ void Session::processAPHelloResponse(std::vector<uint8_t> &helloPacket)
     auto lastVec = std::vector<uint8_t>(resultData.begin(), resultData.begin() + 0x14);
 
     // Digest generated!
-    clientResPlaintext.login_crypto_response = {};
-    clientResPlaintext.login_crypto_response.diffie_hellman.emplace();
-    clientResPlaintext.login_crypto_response.diffie_hellman->hmac = crypto->sha1HMAC(lastVec, data);
+    auto digest = crypto->sha1HMAC(lastVec, data);
+    clientResPlaintext.login_crypto_response.has_diffie_hellman = true;
 
-    auto resultPacket = encodePb(clientResPlaintext);
+    std::copy(digest.begin(),
+              digest.end(),
+              clientResPlaintext.login_crypto_response.diffie_hellman.hmac);
+
+    auto resultPacket = pbEncode(ClientResponsePlaintext_fields, &clientResPlaintext);
 
     auto emptyPrefix = std::vector<uint8_t>(0);
 
@@ -136,20 +163,27 @@ std::vector<uint8_t> Session::sendClientHelloRequest()
     this->crypto->dhInit();
 
     // Copy the public key into diffiehellman hello packet
-    clientHello.login_crypto_hello.diffie_hellman.emplace();
-    clientHello.feature_set.emplace();
-    clientHello.login_crypto_hello.diffie_hellman->gc = this->crypto->publicKey;
-    clientHello.login_crypto_hello.diffie_hellman->server_keys_known = 1;
-    clientHello.build_info.product = Product::PRODUCT_PARTNER;
-    clientHello.build_info.platform = Platform::PLATFORM_LINUX_X86;
-    clientHello.build_info.version = 112800721;
-    clientHello.feature_set->autoupdate2 = true;
-    clientHello.cryptosuites_supported = std::vector<Cryptosuite>({Cryptosuite::CRYPTO_SUITE_SHANNON});
-    clientHello.padding = std::vector<uint8_t>({0x1E});
+    std::copy(this->crypto->publicKey.begin(),
+              this->crypto->publicKey.end(),
+              clientHello.login_crypto_hello.diffie_hellman.gc);
+
+    clientHello.login_crypto_hello.diffie_hellman.server_keys_known = 1;
+    clientHello.build_info.product = Product_PRODUCT_PARTNER;
+    clientHello.build_info.platform = Platform2_PLATFORM_LINUX_X86;
+    clientHello.build_info.version = SPOTIFY_VERSION;
+    clientHello.feature_set.autoupdate2 = true;
+    clientHello.cryptosuites_supported[0] = Cryptosuite_CRYPTO_SUITE_SHANNON;
+    clientHello.padding[0] = 0x1E;
+
+    clientHello.has_feature_set = true;
+    clientHello.login_crypto_hello.has_diffie_hellman = true;
+    clientHello.has_padding = true;
+    clientHello.has_feature_set = true;
 
     // Generate the random nonce
-    clientHello.client_nonce = crypto->generateVectorWithRandomData(16);
-    auto vecData = encodePb(clientHello);
+    auto nonce = crypto->generateVectorWithRandomData(16);
+    std::copy(nonce.begin(), nonce.end(), clientHello.client_nonce);
+    auto vecData = pbEncode(ClientHello_fields, &clientHello);
     auto prefix = std::vector<uint8_t>({0x00, 0x04});
     return this->conn->sendPrefixPacket(prefix, vecData);
 }
