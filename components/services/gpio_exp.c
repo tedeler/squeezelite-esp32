@@ -656,8 +656,6 @@ static esp_err_t aw9523_init(gpio_exp_t* self) {
 	ESP_LOGD(TAG, "Setting max Current to Imax * %d/4", 4-(globalConfig&0x03));
 
 	esp_err_t err = i2c_write(self->phy.port, self->phy.addr, 0x11, globalConfig, 1);
-	self->w_mask = 0x00000000;
-	self->r_mask = 0x00000000;
 	aw9523_set_direction(self);
 
 	return err;
@@ -669,6 +667,8 @@ static void aw9523_set_direction(gpio_exp_t* self) {
 	i2c_write(self->phy.port, self->phy.addr, 0x04, ~self->w_mask, 2);
 	i2c_write(self->phy.port, self->phy.addr, 0x06, ~self->r_mask, 2);
 	i2c_write(self->phy.port, self->phy.addr, 0x12, ~self->analog_mask, 2);
+	i2c_read(self->phy.port, self->phy.addr, 0x00, 1);
+	i2c_read(self->phy.port, self->phy.addr, 0x01, 1);
 }
 
 static void aw9523_set_pull_mode(gpio_exp_t* self) {
