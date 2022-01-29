@@ -33,19 +33,12 @@ void writeByteWithNoData(int i2c_addr,uint8_t reg) {
 void initSoundSwitch() {
     uint8_t chipaddr = ADDR_CSC2316;
 
-    writeByteWithNoData(chipaddr, 0x58);    //
-    writeByteWithNoData(chipaddr, 0xC0);    //
-    writeByteWithNoData(chipaddr, 0xE0);    //
-    writeByteWithNoData(chipaddr, 0x10);    //
-    writeByteWithNoData(chipaddr, 0x9F);    //
-    writeByteWithNoData(chipaddr, 0xBF);    //
-    writeByteWithNoData(chipaddr, 0x3F);    //
-    writeByteWithNoData(chipaddr, 0x5D);    //
-    writeByteWithNoData(chipaddr, 0x5D);    //
-    writeByteWithNoData(chipaddr, 0x3F);    //
-    writeByteWithNoData(chipaddr, 0x80);    //
-    writeByteWithNoData(chipaddr, 0xA0);    //
-    writeByteWithNoData(chipaddr, 0x3F);    //
+//    writeByteWithNoData(chipaddr, 0xC0);    //
+//    writeByteWithNoData(chipaddr, 0xE0);    //
+    writeByteWithNoData(chipaddr, 0x5D);    //8.4 Audio Switch: 0dB, Loudness Off, Stereo Input 2
+    writeByteWithNoData(chipaddr, 0x80);    //8.3 Left front speaker attenuation 0dB
+    writeByteWithNoData(chipaddr, 0xA0);    //8.3 Right front speaker attenuation 0dB
+    writeByteWithNoData(chipaddr, 0x3F);    //8.2 Volume to -70dB
 }
 
 static bool init(char *config, int i2c_port, i2s_config_t *i2s_config) {	 
