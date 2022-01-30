@@ -126,22 +126,22 @@ static void lms_##N (bool pressed) {    	\
 	}                                       \
 }
 
-#define LMS_CALLBACKX(N,B,E)					\
+#define LMS_CALLBACK_MIXER(N,B,E)					\
 static void lms_##N (bool pressed) {    	\
 	if (raw_mode) {							\
 		sendBUTN( BUTN_##B , pressed );		\
 	} else {								\
-		cli_send_cmd(#E); 		\
+		cli_send_cmd("mixer" " " #E); 		\
 	}                                       \
 }
 
 LMS_CALLBACK(power, POWER_FRONT, power)
 LMS_CALLBACK(play, PLAY, play.single)
 
-//LMS_CALLBACK(volup, VOLUP_FRONT, volup)
-LMS_CALLBACKX(volup, VOLUP_FRONT, mixer volume +10)
-LMS_CALLBACKX(voldown, VOLUP_FRONT, mixer volume -10)
-//LMS_CALLBACK(voldown, VOLDOWN_FRONT, voldown)
+LMS_CALLBACK(volup, VOLUP_FRONT, volup)
+LMS_CALLBACK_MIXER(volupcoarse, VOLUP_FRONT, volume +10)
+LMS_CALLBACK_MIXER(voldowncoarse, VOLUP_FRONT, volume -10)
+LMS_CALLBACK(voldown, VOLDOWN_FRONT, voldown)
 
 LMS_CALLBACK(rew, REW, rew.repeat)
 LMS_CALLBACK(fwd, FWD, fwd.repeat)
@@ -174,7 +174,7 @@ const actrls_t LMS_controls = {
 	lms_up, lms_down,
 	lms_left, lms_right, 
 	lms_pre1, lms_pre2, lms_pre3, lms_pre4, lms_pre5, lms_pre6,
-	lms_knob_left, lms_knob_right, lms_knob_push,
+	lms_knob_left, lms_knob_right, lms_knob_push, lms_volupcoarse, lms_voldowncoarse
 };
 
 /****************************************************************************************
