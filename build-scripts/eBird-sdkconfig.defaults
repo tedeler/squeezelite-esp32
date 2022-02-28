@@ -181,10 +181,8 @@ CONFIG_LOGGING_DECODE="info"
 CONFIG_LOGGING_OUTPUT="info"
 # end of Logging
 
-CONFIG_JACK_LOCKED=y
-CONFIG_I2C_LOCKED=y
-CONFIG_LED_LOCKED=y
 CONFIG_MUTE_GPIO_LEVEL=0
+CONFIG_TARGET_LOCKED=n
 
 #
 # Target
@@ -194,7 +192,7 @@ CONFIG_BASIC_I2C_BT=y
 # CONFIG_TWATCH2020 is not set
 CONFIG_RELEASE_API="https://api.github.com/repos/sle118/squeezelite-esp32/releases"
 CONFIG_SQUEEZELITE_ESP32_RELEASE_URL="https://github.com/sle118/squeezelite-esp32/releases"
-CONFIG_PROJECT_NAME="SqueezeEBird"
+CONFIG_PROJECT_NAME="Squeezelite-ESP32"
 CONFIG_FW_PLATFORM_NAME="ESP32"
 CONFIG_DAC_CONFIG="model=eBird,bck=26,ws=2,do=4,mck"
 CONFIG_SPDIF_CONFIG=""
@@ -203,6 +201,7 @@ CONFIG_SPI_CONFIG=""
 CONFIG_DISPLAY_CONFIG=""
 CONFIG_ETH_CONFIG=""
 CONFIG_DAC_CONTROLSET=""
+CONFIG_TARGET=""
 # end of Target
 
 #
@@ -226,8 +225,8 @@ CONFIG_I2S_DI_IO=-1
 #
 # I2C settings
 #
-CONFIG_I2C_SDA=18
-CONFIG_I2C_SCL=19
+CONFIG_I2C_SDA=-1
+CONFIG_I2C_SCL=-1
 # end of I2C settings
 
 CONFIG_MUTE_GPIO=-1
@@ -272,19 +271,30 @@ CONFIG_CSPOT_SINK=y
 #
 # Various I/O
 #
-CONFIG_I2C_CONFIG=""
-CONFIG_SET_GPIO="135=gnd,134=vcc,133=gnd,132=vcc,129=vcc,128=gnd"
+CONFIG_I2C_CONFIG="sda=18,scl=19,speed=100000,port=0"
+CONFIG_SET_GPIO="130=green:1,120=red:1,34=jack,2=spkfault,135=gnd,134=vcc,133=gnd,132=vcc,129=vcc,128=gnd,25=vcc"
 CONFIG_ROTARY_ENCODER=""
 # end of Various I/O
 
 #
 # LED configuration
 #
-CONFIG_LED_GREEN_GPIO=130
-CONFIG_LED_GREEN_GPIO_LEVEL=1
-CONFIG_LED_RED_GPIO=120
-CONFIG_LED_RED_GPIO_LEVEL=1
+CONFIG_LED_GREEN_GPIO=-1
+CONFIG_LED_RED_GPIO=-1
 # end of LED configuration
+
+
+#
+# Audio controls
+#
+CONFIG_AUDIO_CONTROLS=""
+# end of Audio Contorls configuration
+
+#
+# AMP configuration
+#
+CONFIG_AMP_GPIO=-1
+# end of AMP configuration
 
 #
 # Audio JACK
@@ -301,7 +311,7 @@ CONFIG_SPKFAULT_GPIO=-1
 #
 # Battery measure
 #
-CONFIG_BAT_CHANNEL=-1
+CONFIG_BAT_CONFIG=""
 # end of Battery measure
 
 CONFIG_DEFAULT_COMMAND_LINE="squeezelite -o I2S -b 500:2000 -d all=info -C 30 -W"
