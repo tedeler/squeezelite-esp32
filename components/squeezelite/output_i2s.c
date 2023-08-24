@@ -454,7 +454,7 @@ static void output_thread_i2s(void *arg) {
 		if (state != output.state) {
 			LOG_INFO("Output state is %d", output.state);
 			if (output.state == OUTPUT_OFF) {
-				led_blink(LED_GREEN, 100, 2500);
+				led_off(LED_GREEN);
 				if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, !amp_control.active);
 				LOG_INFO("switching off amp GPIO %d", amp_control.gpio);
 			} else if (output.state == OUTPUT_STOPPED) {
